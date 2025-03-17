@@ -4,10 +4,48 @@ import {
   PrismaClientValidationError,
   PrismaClientRustPanicError,
 } from "@prisma/client/runtime/library";
+import {
+  JWTExpired,
+  JWTClaimValidationFailed,
+  JWEInvalid,
+  JWEDecryptionFailed,
+} from "jose/errors";
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 
 export const onHandleApiError = (error: unknown) => {
+  // Handle JWT Errors
+  if (error instanceof JWTExpired) {
+    return NextResponse.json(
+      {
+        error: "Unauthorized",
+        message: "Token has expired",
+      },
+      { status: 401 },
+    );
+  }
+
+  if (error instanceof JWTClaimValidationFailed) {
+    return NextResponse.json(
+      {
+        error: "Unauthorized",
+        message: "Token claims validation failed",
+      },
+      { status: 401 },
+    );
+  }
+
+  if (error instanceof JWEInvalid || error instanceof JWEDecryptionFailed) {
+    return NextResponse.json(
+      {
+        error: "Invalid JWT",
+        message: "Malformed or unsupported JWT",
+      },
+      { status: 400 },
+    );
+  }
+
+  // Handle Zod Validation Errors
   if (error instanceof ZodError) {
     return NextResponse.json(
       {
@@ -18,6 +56,7 @@ export const onHandleApiError = (error: unknown) => {
     );
   }
 
+  // Handle Prisma Errors
   if (error instanceof PrismaClientKnownRequestError) {
     switch (error.code) {
       case "P2002":
@@ -77,6 +116,7 @@ export const onHandleApiError = (error: unknown) => {
     );
   }
 
+  // Handle unknown errors
   return NextResponse.json(
     {
       error: "Unknown Error",
